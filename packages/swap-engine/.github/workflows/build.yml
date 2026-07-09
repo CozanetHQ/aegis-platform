@@ -1,0 +1,39 @@
+name: Build & Validate
+
+# Fails if: the checked-in openapi/openapi.json is missing/invalid, any
+# route.ts has no matching contract entry (contract drift), typecheck
+# fails, unit tests fail, or the production build fails. Pure offline
+# checks — no dependency on any other engine or a live deployment.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate OpenAPI contract (offline)
+        run: npm run validate-openapi
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npx next build

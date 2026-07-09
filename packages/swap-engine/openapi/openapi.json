@@ -1,0 +1,202 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Aegis Swap Engine",
+    "version": "1.0.0",
+    "description": "Swap orchestration \u2014 PancakeSwap V2 on BSC. Phase 1: read-only quoting. Own lifecycle, own risk profile, distinct from Payment/Transfer engines."
+  },
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "summary": "Liveness/readiness check (checks BSC RPC reachability)",
+        "responses": {
+          "200": {
+            "description": "Healthy"
+          },
+          "503": {
+            "description": "Degraded"
+          }
+        }
+      }
+    },
+    "/api/v1/version": {
+      "get": {
+        "summary": "Build/version info",
+        "responses": {
+          "200": {
+            "description": "Version"
+          }
+        }
+      }
+    },
+    "/api/v1/metrics": {
+      "get": {
+        "summary": "Engine metrics",
+        "responses": {
+          "200": {
+            "description": "Metrics"
+          }
+        }
+      }
+    },
+    "/api/v1/openapi.json": {
+      "get": {
+        "summary": "This canonical contract",
+        "responses": {
+          "200": {
+            "description": "OpenAPI spec"
+          }
+        }
+      }
+    },
+    "/api/v1/swap/tokens": {
+      "get": {
+        "summary": "List tokens supported for on-chain swap quoting via PancakeSwap V2",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Supported swap tokens"
+          }
+        }
+      }
+    },
+    "/api/v1/swap/quote": {
+      "post": {
+        "summary": "Get a read-only PancakeSwap V2 quote for a token pair + amount (no funds move)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "tokenIn",
+                  "tokenOut",
+                  "amountIn",
+                  "decimalsIn",
+                  "decimalsOut"
+                ],
+                "properties": {
+                  "tokenIn": {
+                    "type": "string"
+                  },
+                  "tokenOut": {
+                    "type": "string"
+                  },
+                  "amountIn": {
+                    "type": "string"
+                  },
+                  "decimalsIn": {
+                    "type": "integer"
+                  },
+                  "decimalsOut": {
+                    "type": "integer"
+                  },
+                  "chainId": {
+                    "type": "integer"
+                  },
+                  "slippageBps": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Swap quote"
+          },
+          "400": {
+            "description": "Validation error or no liquidity for this pair"
+          }
+        }
+      }
+    },
+    "/api/v1/swap/execute": {
+      "post": {
+        "summary": "Sign and broadcast the actual PancakeSwap V2 trade for the authenticated user (wallet resolved server-side)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "tokenIn",
+                  "tokenOut",
+                  "amountInWei",
+                  "minimumReceivedWei",
+                  "route",
+                  "quoteId"
+                ],
+                "properties": {
+                  "tokenIn": {
+                    "type": "string"
+                  },
+                  "tokenOut": {
+                    "type": "string"
+                  },
+                  "amountInWei": {
+                    "type": "string"
+                  },
+                  "minimumReceivedWei": {
+                    "type": "string"
+                  },
+                  "route": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "quoteId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Swap executed and confirmed on-chain"
+          },
+          "404": {
+            "description": "No BNB wallet found for this identity"
+          },
+          "409": {
+            "description": "BNB wallet is not ACTIVE"
+          },
+          "502": {
+            "description": "Swap transaction reverted on-chain or broadcast failed"
+          },
+          "504": {
+            "description": "Transaction did not confirm within the timeout"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

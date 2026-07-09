@@ -1,0 +1,18 @@
+name: Validate OpenAPI Contract
+
+# Fails the build if any src/app/api/**/route.ts exists with no matching
+# entry in openapi/openapi.json — the canonical, GitHub-stored contract.
+# Pure filesystem check, no network calls, no dependency on any other
+# engine or Vercel deployment being up.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node scripts/validate-openapi.mjs

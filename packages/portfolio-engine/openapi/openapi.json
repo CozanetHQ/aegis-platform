@@ -1,0 +1,37 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "AEGIS Portfolio Engine API",
+    "version": "1.0.0",
+    "description": "Financial read model for the AEGIS ecosystem. CANONICAL contract — committed to GitHub, consumed by aegis-gateway's build-time validator and typed-client generator. NOTES: (1) this engine has NO '/portfolio' prefix — routes sit directly under /api/v1/... (e.g. /api/v1/summary); aegis-gateway previously assumed a '/portfolio' prefix that doesn't exist here, which was the portfolio routing bug. (2) user-facing routes trust an unsigned 'X-User-Id' header rather than independently re-validating the caller's Supabase JWT like the Identity/Wallet-Vault engines do — this diverges from the zero-trust model in aegis-architecture/contracts/api-contracts.md and should be hardened (verify a signed Gateway-issued identity assertion instead of a bare header) as a follow-up. (3) POST /transfer-preview currently has no auth check at all in code (its sibling /payment-preview does) — flagged as a likely oversight, not fixed here since it's engine business logic."
+  },
+  "servers": [{ "url": "/" }],
+  "paths": {
+    "/api/v1/health":       { "get": { "summary": "Health check", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/version":      { "get": { "summary": "Version info", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/metrics":      { "get": { "summary": "Engine metrics", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/openapi.json": { "get": { "summary": "This OpenAPI 3.0 contract", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/summary":              { "get": { "summary": "Portfolio summary (dashboard data)", "security": [{ "userIdHeader": [] }], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/history":               { "get": { "summary": "Portfolio history for charting", "security": [{ "userIdHeader": [] }], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/wallets/{walletId}":    { "get": { "summary": "Wallet summary", "security": [{ "userIdHeader": [] }], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/allocation/assets":     { "get": { "summary": "Asset allocation", "security": [{ "userIdHeader": [] }], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/allocation/chains":     { "get": { "summary": "Chain allocation", "security": [{ "userIdHeader": [] }], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/allocation/wallets":    { "get": { "summary": "Wallet allocation", "security": [{ "userIdHeader": [] }], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/performance":           { "get": { "summary": "Performance metrics", "security": [{ "userIdHeader": [] }], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/available-balance":     { "get": { "summary": "Available balance", "security": [{ "userIdHeader": [] }], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/transfer-preview":      { "post": { "summary": "Preview transfer impact", "description": "No auth check in current code (likely oversight — see info.description).", "security": [], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/payment-preview":       { "post": { "summary": "Preview payment impact", "security": [{ "userIdHeader": [] }], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/snapshot":              { "post": { "summary": "Create portfolio snapshot", "security": [{ "userIdHeader": [] }], "responses": { "201": { "description": "Created" } } } },
+    "/api/v1/admin/statistics":      { "get": { "summary": "Admin: portfolio statistics", "security": [{ "portfolioAdminApiKey": [] }], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/admin/top-assets":      { "get": { "summary": "Admin: top assets", "security": [{ "portfolioAdminApiKey": [] }], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/admin/top-chains":      { "get": { "summary": "Admin: top chains", "security": [{ "portfolioAdminApiKey": [] }], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/admin/cache-status":    { "get": { "summary": "Admin: cache status", "security": [{ "portfolioAdminApiKey": [] }], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/admin/snapshot-status": { "get": { "summary": "Admin: snapshot status", "security": [{ "portfolioAdminApiKey": [] }], "responses": { "200": { "description": "OK" } } } }
+  },
+  "components": {
+    "securitySchemes": {
+      "userIdHeader":        { "type": "apiKey", "in": "header", "name": "X-User-Id", "description": "Gateway-asserted caller identity. Gateway must independently validate the caller's session (requireAuth) and set this header itself when forwarding — this engine trusts the header verbatim and does not re-validate a JWT. See info.description for the hardening note." },
+      "portfolioAdminApiKey": { "type": "apiKey", "in": "header", "name": "X-Portfolio-API-Key", "description": "Engine-to-engine/admin only. The Gateway does not hold this key and must not expose these routes publicly." }
+    }
+  }
+}

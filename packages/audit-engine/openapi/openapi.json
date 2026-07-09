@@ -1,0 +1,43 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Aegis Audit Engine",
+    "version": "1.0.0",
+    "description": "The permanent memory of the AEGIS ecosystem. Every important action across every engine is recorded, searchable, and explainable. This is the CANONICAL, checked-in contract — verified during the 2026-07 contract-first migration audit against the real route implementations. See docs/CONTRACT_AUDIT.md for a critical fix: every route below previously had NO real authorization (only an unenforced 'Bearer <anything>' prefix check) despite this contract always having declared bearerAuth. x-required-role reflects what is now actually enforced in code."
+  },
+  "servers": [{ "url": "/" }],
+  "paths": {
+    "/api/v1/health": { "get": { "summary": "Liveness + DB check", "security": [], "responses": { "200": { "description": "OK" }, "503": { "description": "Unhealthy" } } } },
+    "/api/v1/version": { "get": { "summary": "Build/version info", "security": [], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/metrics": { "get": { "summary": "Prometheus metrics", "security": [], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/openapi.json": { "get": { "summary": "This spec", "security": [], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/events": {
+      "post": { "summary": "Create audit event (engine-to-engine)", "security": [{ "apiKeyAuth": [] }], "responses": { "201": { "description": "Created" }, "400": { "description": "Validation error" }, "401": { "description": "Invalid/missing X-Audit-API-Key" } } },
+      "get": { "summary": "Search audit events with filters — cross-user, cross-wallet, cross-admin", "security": [{ "bearerAuth": [] }], "x-required-role": "admin", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthenticated" }, "403": { "description": "Not an admin" } } }
+    },
+    "/api/v1/events/{eventId}": { "get": { "summary": "Get single event by ID", "security": [{ "bearerAuth": [] }], "x-required-role": "admin", "responses": { "200": { "description": "OK" }, "404": { "description": "Not found" } } } },
+    "/api/v1/timeline": { "get": { "summary": "Chronological timeline (user/correlation/wallet/session)", "security": [{ "bearerAuth": [] }], "x-required-role": "admin", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/investigations": {
+      "post": { "summary": "Start investigation", "security": [{ "bearerAuth": [] }], "x-required-role": "admin", "responses": { "201": { "description": "Created" } } },
+      "get": { "summary": "List investigations", "security": [{ "bearerAuth": [] }], "x-required-role": "admin", "responses": { "200": { "description": "OK" } } }
+    },
+    "/api/v1/investigations/{investigationId}": { "get": { "summary": "Get investigation with events", "security": [{ "bearerAuth": [] }], "x-required-role": "admin", "responses": { "200": { "description": "OK" }, "404": { "description": "Not found" } } } },
+    "/api/v1/exports": {
+      "post": { "summary": "Export audit data (JSON/CSV/PDF) — most sensitive endpoint in this engine", "security": [{ "bearerAuth": [] }], "x-required-role": "admin", "responses": { "200": { "description": "OK" } } },
+      "get": { "summary": "List exports", "security": [{ "bearerAuth": [] }], "x-required-role": "admin", "responses": { "200": { "description": "OK" } } }
+    },
+    "/api/v1/statistics": { "get": { "summary": "Platform-wide statistics", "security": [{ "bearerAuth": [] }], "x-required-role": "admin", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/statistics/engines": { "get": { "summary": "Engine activity breakdown", "security": [{ "bearerAuth": [] }], "x-required-role": "admin", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/recent": { "get": { "summary": "Recent events (live feed, platform-wide)", "security": [{ "bearerAuth": [] }], "x-required-role": "admin", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/history/users/{userId}": { "get": { "summary": "User history — self or admin only", "security": [{ "bearerAuth": [] }], "x-required-role": "self-or-admin", "responses": { "200": { "description": "OK" }, "403": { "description": "Not self and not an admin" } } } },
+    "/api/v1/history/wallets/{walletId}": { "get": { "summary": "Wallet history", "security": [{ "bearerAuth": [] }], "x-required-role": "admin", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/history/correlations/{correlationId}": { "get": { "summary": "Correlation lookup (reconstruct cross-engine journey)", "security": [{ "bearerAuth": [] }], "x-required-role": "admin", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/history/admins/{adminId}": { "get": { "summary": "Admin action history", "security": [{ "bearerAuth": [] }], "x-required-role": "admin", "responses": { "200": { "description": "OK" } } } }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "Supabase JWT" },
+      "apiKeyAuth": { "type": "apiKey", "in": "header", "name": "X-Audit-API-Key" }
+    }
+  }
+}

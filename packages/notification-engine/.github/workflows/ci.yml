@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://npm.pkg.github.com
+          scope: "@cozanethq"
+      - run: npm install
+        env:
+          # This engine's .npmrc reads ${GITHUB_PACKAGES_TOKEN} (matches
+          # Identity/Wallet-Vault/Payment; only Transfer Engine is the
+          # ${GITHUB_TOKEN} outlier — see docs/CONTRACT_AUDIT.md).
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Validate OpenAPI contract (offline)
+        run: npm run validate-openapi
+      - run: npx tsc --noEmit
+      - run: npx vitest run
+      - name: Build
+        run: npx next build

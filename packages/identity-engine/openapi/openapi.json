@@ -1,0 +1,416 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Aegis Identity Engine",
+    "version": "1.1.0",
+    "description": "User identity, AEGIS ID issuance, KYC status, recovery, admin lock/suspend/reactivate. This file is the CANONICAL contract \u2014 committed to GitHub, consumed by aegis-gateway's build-time validator and typed-client generator. The live GET /api/v1/openapi.json route serves this exact file; do not let them drift apart."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "summary": "Liveness + DB health",
+        "responses": {
+          "200": {
+            "description": "healthy"
+          },
+          "503": {
+            "description": "degraded"
+          }
+        }
+      }
+    },
+    "/api/v1/version": {
+      "get": {
+        "summary": "Build/version info",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/metrics": {
+      "get": {
+        "summary": "Prometheus metrics",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/openapi.json": {
+      "get": {
+        "summary": "This OpenAPI 3.0 contract",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/identity/signup": {
+      "post": {
+        "summary": "Create a Supabase Auth user + identity record in one call (public bootstrap)",
+        "description": "PUBLIC. No prior session required \u2014 this IS how a session is created. CONTRACT FIX 2026-07-07: this route existed in code since before this file was tracked, but was never declared here, which let aegis-gateway's hand-written auth flag leave it behind requireAuth() and broke signup end-to-end. Fixed by declaring it here with no `security`.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  },
+                  "firstName": {
+                    "type": "string"
+                  },
+                  "lastName": {
+                    "type": "string"
+                  },
+                  "accountType": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email",
+                  "password",
+                  "firstName",
+                  "lastName"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "409": {
+            "description": "Email exists"
+          }
+        }
+      }
+    },
+    "/api/v1/identity/login": {
+      "post": {
+        "summary": "Authenticate against Supabase Auth, return session + identity info (public bootstrap)",
+        "description": "PUBLIC. No prior session required. Same contract-drift fix as /signup.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email",
+                  "password"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        }
+      }
+    },
+    "/api/v1/identity/refresh": {
+      "post": {
+        "summary": "Exchange a refresh token for a new access token (public bootstrap)",
+        "description": "PUBLIC. Called by the UI when the access token expires. Same contract-drift fix as /signup.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refreshToken": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "refreshToken"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Invalid/expired refresh token"
+          }
+        }
+      }
+    },
+    "/api/v1/identity/register": {
+      "post": {
+        "summary": "Create identity skeleton (called right after Supabase signUp())",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "409": {
+            "description": "Email exists"
+          }
+        }
+      }
+    },
+    "/api/v1/identity/verify-email": {
+      "post": {
+        "summary": "Verify email \u2192 EMAIL_VERIFIED",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/identity/onboard": {
+      "post": {
+        "summary": "Complete onboarding (generates wallets)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "409": {
+            "description": "Already onboarded"
+          }
+        }
+      }
+    },
+    "/api/v1/identity/me": {
+      "get": {
+        "summary": "Get own identity card",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/identity/{aegis_id}": {
+      "get": {
+        "summary": "Get public identity card",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/api/v1/identity/internal/{aegis_id}": {
+      "get": {
+        "summary": "Engine-to-engine identity lookup (returns email + wallets)",
+        "security": [
+          {
+            "identityApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/v1/identity/me/lock": {
+      "post": {
+        "summary": "Self-lock account",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/identity/me/unlock": {
+      "post": {
+        "summary": "Self-unlock account",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/identity/admin/lock": {
+      "post": {
+        "summary": "Admin lock account",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/api/v1/identity/admin/unlock": {
+      "post": {
+        "summary": "Admin unlock account",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/api/v1/identity/admin/suspend": {
+      "post": {
+        "summary": "Admin suspend account",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/api/v1/identity/admin/reactivate": {
+      "post": {
+        "summary": "Admin reactivate account",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/api/v1/identity/admin/{aegis_id}/audit": {
+      "get": {
+        "summary": "Get audit trail",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/api/v1/identity/admin/outbox": {
+      "get": {
+        "summary": "Get outbox events",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "identityApiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Identity-API-Key"
+      },
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Supabase JWT"
+      }
+    }
+  }
+}

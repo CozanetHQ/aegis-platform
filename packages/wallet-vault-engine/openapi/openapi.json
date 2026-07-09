@@ -1,0 +1,47 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Aegis Wallet Vault Engine",
+    "version": "1.0.0",
+    "description": "Custody engine: HD wallet generation, key envelope encryption, transaction signing. CANONICAL contract — committed to GitHub, consumed by aegis-gateway's build-time validator and typed-client generator. NOTE (blocked): per aegis-architecture/adrs/ADR-002 and ownership.md, this engine currently exposes engine-to-engine-only endpoints (vaultApiKey). There is no user-facing (bearerAuth) list/create/import/watch-wallet surface yet — that's a product decision pending ADR-002, not a Gateway routing bug."
+  },
+  "servers": [{ "url": "/" }],
+  "paths": {
+    "/api/v1/health":       { "get": { "summary": "Liveness + DB health", "responses": { "200": { "description": "healthy" }, "503": { "description": "degraded" } } } },
+    "/api/v1/version":      { "get": { "summary": "Build/version info", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/metrics":      { "get": { "summary": "Prometheus metrics", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/openapi.json": { "get": { "summary": "This OpenAPI 3.0 contract", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/wallet-vault/generate": {
+      "post": {
+        "summary": "Generate wallets for an identity (engine-to-engine, idempotent)",
+        "security": [{ "vaultApiKey": [] }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "aegisId": { "type": "string" } }, "required": ["aegisId"] } } } },
+        "responses": { "200": { "description": "OK" }, "401": { "description": "Missing/invalid X-Vault-API-Key" } }
+      }
+    },
+    "/api/v1/wallet-vault/wallets": {
+      "get": {
+        "summary": "Get public wallet info for an identity (engine-to-engine)",
+        "security": [{ "vaultApiKey": [] }],
+        "parameters": [{ "name": "aegisId", "in": "query", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK" }, "401": { "description": "Missing/invalid X-Vault-API-Key" } }
+      }
+    },
+    "/api/v1/wallet-vault/sign": {
+      "post": {
+        "summary": "Sign an unsigned transaction for a wallet (engine-to-engine)",
+        "security": [{ "vaultApiKey": [] }],
+        "responses": { "200": { "description": "OK" }, "403": { "description": "Wallet ownership mismatch" }, "409": { "description": "Wallet not signable" } }
+      }
+    },
+    "/api/v1/wallet-vault/admin/freeze":    { "post": { "summary": "Freeze a wallet (admin)",    "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/wallet-vault/admin/unfreeze":  { "post": { "summary": "Unfreeze a wallet (admin)",  "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/wallet-vault/admin/deprecate": { "post": { "summary": "Deprecate a wallet (admin)", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "OK" } } } }
+  },
+  "components": {
+    "securitySchemes": {
+      "vaultApiKey": { "type": "apiKey", "in": "header", "name": "X-Vault-API-Key" },
+      "bearerAuth":  { "type": "http", "scheme": "bearer", "bearerFormat": "Supabase JWT" }
+    }
+  }
+}

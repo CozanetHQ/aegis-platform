@@ -1,0 +1,80 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Aegis Notification Engine",
+    "version": "1.0.0",
+    "description": "Single source of truth for all outbound notifications across the Aegis ecosystem — email, in-app, push, SMS, webhook. Other engines only publish events; this engine decides whether/how/when to notify. This is the CANONICAL, checked-in contract — verified during the 2026-07 contract-first migration audit against real route implementations. See docs/CONTRACT_AUDIT.md."
+  },
+  "servers": [{ "url": "/" }],
+  "components": {
+    "securitySchemes": {
+      "engineApiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Engine-API-Key",
+        "description": "Bilateral shared secret, one per calling engine, checked against process.env.NOTIFICATION_ENGINE_API_KEY."
+      },
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Supabase JWT"
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/health": {
+      "get": { "summary": "Liveness + DB health", "security": [], "responses": { "200": { "description": "healthy" }, "503": { "description": "degraded" } } }
+    },
+    "/api/v1/version": {
+      "get": { "summary": "Build/version info", "security": [], "responses": { "200": { "description": "OK" } } }
+    },
+    "/api/v1/metrics": {
+      "get": {
+        "summary": "Prometheus-format metrics (uptime + notification counts by status/channel)",
+        "description": "No auth — matches the platform-wide no-auth-metrics convention. Coarse aggregate counts only, no per-user content.",
+        "security": [],
+        "responses": { "200": { "description": "OK", "content": { "text/plain": {} } } }
+      }
+    },
+    "/api/v1/openapi.json": {
+      "get": { "summary": "This OpenAPI contract", "security": [], "responses": { "200": { "description": "OK" } } }
+    },
+    "/api/v1/notifications": {
+      "post": {
+        "summary": "Ingest an event from another engine (service-to-service, fans out to enabled channels)",
+        "description": "Body: eventId, eventType (one of EVENT_TYPES), recipientAegisId, payload, scheduledFor?. Never called directly by end users.",
+        "security": [{ "engineApiKey": [] }],
+        "responses": { "200": { "description": "OK" }, "401": { "description": "Missing/invalid X-Engine-API-Key" } }
+      },
+      "get": {
+        "summary": "List the caller's own notifications (paginated)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } },
+          { "name": "cursor", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "unread_only", "in": "query", "required": false, "schema": { "type": "boolean", "default": false } }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/api/v1/notifications/unread-count": {
+      "get": { "summary": "Get the caller's unread notification count", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "OK" } } }
+    },
+    "/api/v1/notifications/{id}/read": {
+      "post": {
+        "summary": "Mark one of the caller's own notifications read",
+        "description": "Ownership-checked: 403 NOTIFICATION_FORBIDDEN if the notification's recipientAegisId doesn't match the caller.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK" }, "403": { "description": "Not the recipient" }, "404": { "description": "Not found" } }
+      }
+    },
+    "/api/v1/notifications/read-all": {
+      "post": { "summary": "Mark all of the caller's own notifications read", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "OK" } } }
+    },
+    "/api/v1/preferences/me": {
+      "get": { "summary": "Get the caller's notification preferences", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "OK" } } },
+      "put": { "summary": "Update the caller's notification preferences", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "OK" } } }
+    }
+  }
+}

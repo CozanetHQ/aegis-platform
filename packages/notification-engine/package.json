@@ -1,0 +1,29 @@
+{
+  "name": "@cozanethq/notification-engine",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Single source of truth for all outbound notifications across the Aegis ecosystem — email, in-app, push, SMS, webhook. Other engines only publish events; this engine decides whether/how/when to notify.",
+  "scripts": {
+    "build": "npm run validate-openapi && next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "validate-openapi": "node scripts/validate-openapi.mjs"
+  },
+  "dependencies": {
+    "@cozanethq/aegis-shared-sdk": "^1.0.2",
+    "@supabase/supabase-js": "^2.43.0",
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "uuid": "^11.1.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.0",
+    "@types/react": "^18.3.0",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.9"
+  }
+}

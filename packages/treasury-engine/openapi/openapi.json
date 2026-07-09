@@ -1,0 +1,10 @@
+{
+  "openapi": "3.0.0",
+  "info": { "title": "Aegis Treasury Engine", "version": "1.0.0" },
+  "paths": {
+    "/api/v1/treasury/calculate-fee": { "post": { "summary": "Calculate swap fee" } },
+    "/api/v1/treasury/sponsor-gas": { "post": { "summary": "Sponsor gas top-up if needed" } },
+    "/api/v1/treasury/record-transaction": { "post": { "summary": "Record a completed transaction against the treasury ledger" } },
+    "/api/v1/treasury/ledger": { "get": { "summary": "List treasury ledger entries" } }
+  }
+}
