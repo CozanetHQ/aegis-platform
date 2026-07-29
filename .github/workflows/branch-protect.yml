@@ -1,0 +1,30 @@
+name: Branch Protection
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  check-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify push came via PR merge
+        run: |
+          # Allow merges from GitHub UI (pull request merges)
+          # Fail on direct pushes (except by repo owner)
+          if [ "${{ github.event.head_commit.message }}" == *"Merge pull request"* ] || [ "${{ github.event.head_commit.message }}" == *"Merge branch"* ]; then
+            echo "✅ Push is a PR merge — allowed"
+            exit 0
+          fi
+          
+          # Check if pusher is the repo owner
+          OWNER="${{ github.repository_owner }}"
+          PUSHER="${{ github.actor }}"
+          
+          if [ "$OWNER" = "$PUSHER" ]; then
+            echo "⚠️ Direct push by owner ($PUSHER) — allowed but not recommended"
+            exit 0
+          fi
+          
+          echo "❌ Direct push to main by $PUSHER — use a pull request instead"
+          exit 1
