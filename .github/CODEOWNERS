@@ -1,0 +1,17 @@
+# AEGIS Code Owners — Enforces review on critical paths
+# Per Aegis Constitution: Production Stability Engineer must review all changes
+
+# Root level — all changes require review
+* @fassdavid722
+
+# Critical infrastructure — these files CANNOT be changed without ADR
+/.env* @fassdavid722
+/AEGIS_CONSTITUTION.md @fassdavid722
+/src/engine.ts @fassdavid722
+/openapi/ @fassdavid722
+/src/lib/migrations/ @fassdavid722
+
+# Wallet & auth — Law 23 protection
+/api/wallet.ts @fassdavid722
+/src/lib/firebase* @fassdavid722
+/src/lib/identityClient* @fassdavid722
