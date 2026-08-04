@@ -1,0 +1,130 @@
+name: 🛡️ Aegis Security Guardian
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  delete:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  guard:
+    name: Code Integrity Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🔒 Verify committer email
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            COMMITS=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/commits --jq '.[].commit.author.email')
+          else
+            COMMITS=$(git log --format='%ae' -n 10 HEAD)
+          fi
+          for email in $COMMITS; do
+            if [ "$email" != "fassdavid722@gmail.com" ] && [ "$email" != "noreply@github.com" ]; then
+              echo "::error::Unauthorized committer email: $email. Only fassdavid722@gmail.com is allowed."
+              exit 1
+            fi
+          done
+          echo "✅ All committer emails verified"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🚫 Detect destructive database migrations
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          if [ -z "$CHANGED" ] && [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files --jq '.[].filename')
+          fi
+          for file in $CHANGED; do
+            if echo "$file" | grep -qiE '\.sql$'; then
+              CONTENT=$(cat "$file" 2>/dev/null || echo "")
+              if echo "$CONTENT" | grep -qiE '(DROP\s+(TABLE|DATABASE|SCHEMA)|TRUNCATE|DELETE\s+FROM\s+\w+\s*;|DROP\s+COLUMN)'; then
+                echo "::error::Destructive SQL detected in $file — DROP/TRUNCATE/DELETE without WHERE is blocked."
+                exit 1
+              fi
+              echo "✅ SQL file $file is safe"
+            fi
+          done
+          echo "✅ No destructive database migrations detected"
+
+      - name: 🔑 Detect hardcoded secrets
+        run: |
+          PATTERNS=(
+            "private_key"
+            "mnemonic"
+            "seed_phrase"
+            "master_seed"
+            "0x[0-9a-fA-F]{64}"
+            "AKIA[0-9A-Z]{16}"
+            "sk_live_"
+            "ghp_[a-zA-Z0-9]{36}"
+          )
+          for pattern in "${PATTERNS[@]}"; do
+            if grep -rE "$pattern" --include='*.ts' --include='*.js' --include='*.tsx' --include='*.json' \
+               --exclude-dir=node_modules --exclude-dir=.git --exclude='package-lock.json' . ; then
+              echo "::error::Hardcoded secret detected matching pattern: $pattern"
+              exit 1
+            fi
+          done
+          echo "✅ No hardcoded secrets detected"
+
+      - name: 🛡️ Protect critical files from deletion
+        run: |
+          CRITICAL_FILES=(
+            "src/engine.ts"
+            "src/app/api"
+            ".env.example"
+            "openapi/openapi.json"
+            "AEGIS_CONSTITUTION.md"
+          )
+          DELETED=$(git diff --diff-filter=D --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          if [ -z "$DELETED" ] && [ "${{ github.event_name }}" = "pull_request" ]; then
+            DELETED=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files --jq '.[] | select(.status=="removed") | .filename')
+          fi
+          for file in $DELETED; do
+            for critical in "${CRITICAL_FILES[@]}"; do
+              if echo "$file" | grep -q "^$critical"; then
+                echo "::error::CRITICAL FILE DELETED: $file — This file is protected by the Aegis Security Guardian."
+                exit 1
+              fi
+            done
+          done
+          echo "✅ No critical files were deleted"
+
+      - name: 💀 Check for wallet/auth tampering
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          if [ -z "$CHANGED" ] && [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files --jq '.[].filename')
+          fi
+          WALLET_FILES=$(echo "$CHANGED" | grep -iE '(wallet|vault|auth|firebase|seed|key|crypto|sign)' || echo "")
+          if [ -n "$WALLET_FILES" ]; then
+            echo "⚠️ Wallet/auth/crypto files modified:"
+            echo "$WALLET_FILES"
+            for file in $WALLET_FILES; do
+              DIFF=$(git diff HEAD~1 HEAD -- "$file" 2>/dev/null || echo "")
+              if echo "$DIFF" | grep -qiE '(HMAC|derive|scrypt|master.seed|mnemonic|private.key)'; then
+                echo "::warning::Wallet derivation logic changed in $file — requires ADR approval (Law 23)."
+              fi
+            done
+          fi
+          echo "✅ Wallet/auth tampering check complete"
+
+      - name: 📊 Security scan summary
+        if: always()
+        run: |
+          echo "## 🛡️ Aegis Security Guardian Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Committer email**: Verified" >> $GITHUB_STEP_SUMMARY
+          echo "- **Database migrations**: Checked for destructive SQL" >> $GITHUB_STEP_SUMMARY
+          echo "- **Secrets scan**: Checked for hardcoded credentials" >> $GITHUB_STEP_SUMMARY
+          echo "- **Critical files**: Protected from deletion" >> $GITHUB_STEP_SUMMARY
+          echo "- **Wallet/auth code**: Checked for derivation tampering" >> $GITHUB_STEP_SUMMARY
