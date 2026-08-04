@@ -1,0 +1,44 @@
+name: 🔄 Aegis Auto-Revert
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 */6 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  protect:
+    name: Restore Critical Files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore deleted critical files
+        run: |
+          git config user.name "Aegis Guardian"
+          git config user.email "fassdavid722@gmail.com"
+          CRITICAL_PATHS=(".github/workflows/security-guardian.yml" ".github/workflows/auto-revert.yml" ".github/CODEOWNERS")
+          CHANGES=0
+          for path in "${CRITICAL_PATHS[@]}"; do
+            if [ ! -f "$path" ]; then
+              PREV_FILE=$(git log --all --oneline --format="%H" -- "$path" | head -1)
+              if [ -n "$PREV_FILE" ]; then
+                git checkout "$PREV_FILE" -- "$path"
+                CHANGES=$((CHANGES + 1))
+              fi
+            fi
+          done
+          if [ ! -f "src/engine.ts" ] && git log --all --oneline --format="%H" -- "src/engine.ts" | head -1 | grep -q .; then
+            PREV=$(git log --all --oneline --format="%H" -- "src/engine.ts" | head -1)
+            git checkout "$PREV" -- "src/engine.ts"
+            CHANGES=$((CHANGES + 1))
+          fi
+          if [ $CHANGES -gt 0 ]; then
+            git commit -m "AUTO-REVERT: Restored critical file(s)"
+            git push
+          fi
