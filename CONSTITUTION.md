@@ -263,3 +263,77 @@ src/
 *This Constitution is the source of truth for the AEGIS platform. When in
 doubt, follow the law. When the law is silent, follow the pattern. When the
 pattern is silent, ask the owner.*
+
+---
+
+## Article VI: Security Architecture
+
+### Law 24 — Security Headers Required
+
+Every engine must set the security headers listed in Section S6 on all responses via middleware.
+
+### Section S1 — Key Material Security
+
+- Private keys derived via HD derivation from `VAULT_HD_MNEMONIC` (BIP44 paths)
+- Envelope encrypted with AES-256-GCM (per-wallet IV, auth tag, key version)
+- `KmsPort` interface ready for KMS/HSM swap (current: env-var master key)
+- Known gap: `VAULT_HD_MNEMONIC` and `VAULT_MASTER_KEY_HEX` in env vars — MUST move to real KMS/HSM before mainnet custody
+- Private keys never returned by any API, never logged
+- Zeroization after signing (documented intent — JS strings immutable, true zeroization needs Buffer refactor)
+
+### Section S2 — Authentication Architecture
+
+- Supabase JWT (Bearer token for cross-origin, cookie for same-origin)
+- Engine-to-engine: `X-Vault-API-Key` with `crypto.timingSafeEqual` (via shared SDK `requireEngineApiKey`)
+- Separate API keys per caller (`WALLET_VAULT_API_KEY` for Identity/Gateway, `WALLET_VAULT_API_KEY_TRANSFER` for Transfer, `WALLET_VAULT_API_KEY_SWAP` for Swap)
+- Role hierarchy: user → admin → super_admin (enforced via `requireAdmin`, `requireSuperAdmin`)
+- `getClientIp` for IP-based rate limiting
+
+### Section S3 — Rate Limiting
+
+- Upstash Redis sliding window rate limiter
+- Per-endpoint limits (generate: 3/min, sign: 10/min, reads: 60/min, admin: 5/min)
+- Fail-open on Upstash unavailability (availability over blocking)
+
+### Section S4 — Error Handling & Traceability
+
+- `AegisError` with code, httpStatus, correlationId, timestamp, details
+- Correlation IDs via `X-Correlation-Id` header (`getOrCreateCorrelationId` from SDK)
+- Every error response includes correlation ID for traceability
+- Engine-scoped error codes (`WALLET_NOT_FOUND`, `WALLET_NOT_SIGNABLE`, etc.)
+
+### Section S5 — Data Protection
+
+- RLS enabled on all Supabase tables (service role bypasses for engine-internal calls only)
+- No direct client access to engine tables — all access via API routes
+- Metadata encryption for sensitive fields (bank details) via AES-256-GCM with scrypt-derived key
+
+### Section S6 — Security Headers
+
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains`
+- `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+
+### Section S7 — Audit & Compliance
+
+- State transition audit table (`wallet_states` — append-only)
+- KYC tier enforcement (Tier 0-4 with USD limits)
+- Transaction risk service (daily spend limits, high-amount flags)
+- Compliance service for cross-border transfers
+
+### Section S8 — Engine Boundary Enforcement
+
+- Wallet Vault ONLY signs — never broadcasts (Transfer Engine broadcasts)
+- Wallet Vault ONLY stores key material — never exposes it
+- Engines communicate via HTTP + API key auth — no cross-imports
+- Ownership guard: `signTransaction` verifies `wallet.aegisId === requestingAegisId`
+
+### Section S9 — CI/CD Security
+
+- CODEOWNERS: require review on critical paths
+- Aegis Security Guardian: blocks destructive changes to critical files
+- Auto-Revert: automatically restores deleted critical files
+- CI: builds and tests must pass before merge
+- Branch protection on main
